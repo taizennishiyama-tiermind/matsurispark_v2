@@ -15,7 +15,7 @@ const BackIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
     </svg>
 );
 const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -25,7 +25,7 @@ const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 const UploadIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
     </svg>
 );
 // --- End Icon Components ---
@@ -50,6 +50,8 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
     const [error, setError] = useState<string | null>(null);
 
     const inputFieldClasses = "w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-slate-900 dark:text-slate-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500";
+    const datePickerStyles = "[&::-webkit-calendar-picker-indicator]:invert-[.75] [&::-webkit-calendar-picker-indicator]:dark:invert-0";
+
 
     const handleTierChange = (index: number, field: keyof NewSponsorshipTier, value: any) => {
         const newTiers = [...sponsorship_tiers];
@@ -81,23 +83,19 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
         setError(null);
 
         try {
-            // **ULTIMATE FIX 1: Standardize upload path**
             const fileExt = imageFile.name.split('.').pop();
             const fileName = `festival_${Date.now()}.${fileExt}`;
-            // Correct path format: `folder/filename` as seen in Supabase UI
             const imagePath = `festival-images/${fileName}`;
 
-            // Upload to the correct folder
             const { error: uploadError } = await supabase.storage
-                .from('festival-images') // Bucket name
-                .upload(imagePath, imageFile); // FULL path within the bucket
+                .from('festival-images')
+                .upload(imagePath, imageFile);
             
             if (uploadError) throw new Error(`画像アップロードエラー: ${uploadError.message}`);
 
-            // **ULTIMATE FIX 2: Save the standardized path to DB**
             const festivalData: Omit<Festival, 'id'> = {
                 name, location, date, region, attendance, description, long_description,
-                image_url: imagePath, // <-- Save the `folder/filename` path
+                image_url: imagePath,
                 funding_type,
                 funding_goal: funding_type === 'goal-based' ? funding_goal : 0,
                 current_funding: 0,
@@ -161,7 +159,13 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                            <input type="text" placeholder="祭り名" value={name} onChange={e => setName(e.target.value)} required className={inputFieldClasses} />
                            <input type="text" placeholder="開催地 (例: 京都府京都市)" value={location} onChange={e => setLocation(e.target.value)} required className={inputFieldClasses} />
-                           <input type="text" placeholder="開催時期 (例: 7月1日～31日)" value={date} onChange={e => setDate(e.target.value)} required className={inputFieldClasses} />
+                           
+                           {/* === UI/UX IMPROVEMENT: CALENDAR PICKER === */}
+                           <div className="relative">
+                               <label htmlFor="festival-date" className="absolute -top-3 left-2 -mt-px inline-block bg-white dark:bg-slate-800 px-1 text-xs font-medium text-slate-500 dark:text-slate-400">開催日</label>
+                               <input type="date" id="festival-date" placeholder="開催日を選択" value={date} onChange={e => setDate(e.target.value)} required className={`${inputFieldClasses} ${datePickerStyles}`} />
+                           </div>
+                           
                            <input type="number" placeholder="想定来場者数" value={attendance > 0 ? attendance : ''} onChange={e => setAttendance(Number(e.target.value))} required className={inputFieldClasses} />
                             <select value={region} onChange={e => setRegion(e.target.value)} className={inputFieldClasses}>
                                 <option>北海道</option> <option>東北</option> <option>関東</option> <option>中部</option> <option>関西</option> <option>中国</option> <option>四国</option> <option>九州</option>
@@ -181,9 +185,9 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
                              </label>
                          </div>
                     </div>
-
-                    {/* Funding Type */}
-                     <div className="border-b border-slate-200 dark:border-slate-700 pb-8">
+                    
+                    {/* ... (rest of the form is unchanged) ... */}
+                    <div className="border-b border-slate-200 dark:border-slate-700 pb-8">
                         <h2 className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mb-4">募集タイプ</h2>
                         <div className="flex space-x-4">
                             <label className={`flex-1 p-4 border rounded-lg cursor-pointer text-center ${funding_type === 'open' ? 'border-cyan-500 ring-2 ring-cyan-500' : 'border-slate-300 dark:border-slate-600'}`}>
@@ -204,8 +208,6 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
                             </div>
                         )}
                     </div>
-
-                    {/* Sponsorship Tiers */}
                     <div>
                         <h2 className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mb-4">協賛プラン</h2>
                         <div className="space-y-6">
