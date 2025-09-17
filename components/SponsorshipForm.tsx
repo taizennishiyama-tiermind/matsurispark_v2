@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import type { SponsorshipTier } from '../types';
+import { supabase } from '../lib/supabaseClient'; // Import supabase
 
 interface SponsorshipFormProps {
     tier: SponsorshipTier;
+    festivalId: string; // Add festivalId to link the sponsor to the festival
     festivalName: string;
     onSubmitSuccess: () => void;
 }
@@ -13,21 +15,66 @@ const UploadIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-export const SponsorshipForm: React.FC<SponsorshipFormProps> = ({ tier, festivalName, onSubmitSuccess }) => {
+export const SponsorshipForm: React.FC<SponsorshipFormProps> = ({ tier, festivalId, festivalName, onSubmitSuccess }) => {
     const [companyName, setCompanyName] = useState('');
     const [email, setEmail] = useState('');
     const [logo, setLogo] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submissionMessage, setSubmissionMessage] = useState('');
     const [fileName, setFileName] = useState('');
+    const [error, setError] = useState<string | null>(null);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!logo) {
+            setError('企業ロゴをアップロードしてください。');
+            return;
+        }
+
         setIsSubmitting(true);
+        setError(null);
         setSubmissionMessage('');
 
-        // Simulate form submission
-        setTimeout(() => {
+        try {
+            // 1. Upload logo to Supabase Storage
+            const fileExt = logo.name.split('.').pop();
+            const newFileName = `${Date.now()}.${fileExt}`;
+            const filePath = `logos/${newFileName}`;
+            
+            const { error: uploadError } = await supabase.storage
+                .from('festival-logos') // Make sure this bucket exists and has correct policies
+                .upload(filePath, logo);
+
+            if (uploadError) {
+                throw new Error(`ロゴのアップロードに失敗しました: ${uploadError.message}`);
+            }
+
+            // 2. Get the public URL of the uploaded file
+            const { data: urlData } = supabase.storage
+                .from('festival-logos')
+                .getPublicUrl(filePath);
+            
+            if (!urlData) {
+                 throw new Error('ロゴのURLの取得に失敗しました。');
+            }
+            const logoUrl = urlData.publicUrl;
+
+            // 3. Insert sponsor data into the 'sponsors' table
+            const { error: insertError } = await supabase.from('sponsors').insert([
+                {
+                    company_name: companyName,
+                    logo_url: logoUrl,
+                    sponsorship_tier_id: tier.id,
+                    festival_id: festivalId,
+                    // You might want to add email or other contact info to your DB schema
+                },
+            ]);
+
+            if (insertError) {
+                throw new Error(`協賛情報の保存に失敗しました: ${insertError.message}`);
+            }
+            
+            // 4. Handle success
             setIsSubmitting(false);
             setSubmissionMessage(`${companyName}様、ご支援いただきありがとうございます。「${tier.name}」プランのお申し込みを受け付けました。今後の手続きについては、${email}宛にご連絡いたします。`);
             setCompanyName('');
@@ -35,15 +82,20 @@ export const SponsorshipForm: React.FC<SponsorshipFormProps> = ({ tier, festival
             setLogo(null);
             setFileName('');
             
-            // Notify parent to close/reset
             setTimeout(onSubmitSuccess, 5000);
-        }, 1500);
+
+        } catch (err: any) {
+            setIsSubmitting(false);
+            setError(err.message);
+            console.error('Submission failed:', err);
+        }
     };
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             setLogo(e.target.files[0]);
             setFileName(e.target.files[0].name);
+            setError(null); // Clear error on new file selection
         }
     };
 
@@ -75,6 +127,12 @@ export const SponsorshipForm: React.FC<SponsorshipFormProps> = ({ tier, festival
             <p className="text-center text-slate-600 dark:text-slate-400 mb-6">「<span className="font-bold text-slate-900 dark:text-white">{festivalName}</span>」の「<span className="font-bold text-cyan-600 dark:text-cyan-400">{tier.name}</span>」プランに申し込みます。</p>
             
             <form onSubmit={handleSubmit} className="space-y-6">
+                 {error && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                        <strong className="font-bold">エラー: </strong>
+                        <span className="block sm:inline">{error}</span>
+                    </div>
+                )}
                 <div>
                     <label htmlFor="companyName" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">企業・団体名</label>
                     <input
@@ -98,13 +156,13 @@ export const SponsorshipForm: React.FC<SponsorshipFormProps> = ({ tier, festival
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">企業ロゴ (PNG, JPG)</label>
-                    <label htmlFor="logo-upload" className="relative cursor-pointer bg-slate-100 dark:bg-slate-800 rounded-md font-medium text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-white dark:focus-within:ring-offset-slate-900 focus-within:ring-cyan-500 border border-slate-300 dark:border-slate-600 flex items-center justify-center h-32">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">企業ロゴ (PNG, JPG) *必須</label>
+                    <label htmlFor="logo-upload" className={`relative cursor-pointer bg-slate-100 dark:bg-slate-800 rounded-md font-medium text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-white dark:focus-within:ring-offset-slate-900 focus-within:ring-cyan-500 border border-slate-300 dark:border-slate-600 flex items-center justify-center h-32 ${error && !logo ? 'border-red-500' : ''}`}>
                         <div className="text-center">
                             <UploadIcon className="mx-auto h-12 w-12 text-slate-400 dark:text-slate-500" />
                             <span className="mt-2 block text-sm text-slate-500 dark:text-slate-400">{fileName || 'クリックしてロゴをアップロード'}</span>
                         </div>
-                        <input id="logo-upload" name="logo-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".png, .jpg, .jpeg, .svg" required />
+                        <input id="logo-upload" name="logo-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".png, .jpg, .jpeg, .svg" />
                     </label>
                 </div>
                 <div>

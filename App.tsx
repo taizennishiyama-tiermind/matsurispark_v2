@@ -5,15 +5,14 @@ import { FestivalGrid } from './components/FestivalGrid';
 import { FestivalDetail } from './components/FestivalDetail';
 import { FilterBar } from './components/FilterBar';
 import { CreateEventPage } from './components/CreateEventPage';
-import { festivals as mockFestivals } from './data/mockData';
+// import { festivals as mockFestivals } from './data/mockData'; // No longer needed
 import type { Festival } from './types';
+import { supabase } from './lib/supabaseClient'; // Import supabase
 
 type Page = 'list' | 'detail' | 'create';
 
 const App: React.FC = () => {
-    const [festivals, setFestivals] = useState<Festival[]>([]);
     const [selectedFestival, setSelectedFestival] = useState<Festival | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState<Page>('list');
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
         if (typeof window !== 'undefined' && window.localStorage) {
@@ -24,13 +23,7 @@ const App: React.FC = () => {
     });
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRegion, setSelectedRegion] = useState('');
-
-    useEffect(() => {
-        setTimeout(() => {
-            setFestivals(mockFestivals);
-            setIsLoading(false);
-        }, 1000);
-    }, []);
+    const [regions, setRegions] = useState<string[]>([]);
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -41,6 +34,23 @@ const App: React.FC = () => {
         }
         localStorage.setItem('theme', theme);
     }, [theme]);
+
+    // Fetch unique regions from the database
+    useEffect(() => {
+        const fetchRegions = async () => {
+            const { data, error } = await supabase
+                .from('festivals')
+                .select('region');
+            
+            if (error) {
+                console.error('Error fetching regions:', error);
+            } else {
+                const uniqueRegions = [...new Set(data.map(f => f.region).filter(Boolean))].sort();
+                setRegions(uniqueRegions);
+            }
+        };
+        fetchRegions();
+    }, []);
 
     const handleToggleTheme = () => {
         setTheme(theme === 'light' ? 'dark' : 'light');
@@ -63,30 +73,13 @@ const App: React.FC = () => {
         window.scrollTo(0, 0);
     }
     
-    const handleEventCreated = (newEvent: Festival) => {
-        // 新しいイベントをリストの先頭に追加
-        setFestivals(prev => [newEvent, ...prev]);
+    const handleEventCreated = () => {
+        // After a new event is created in the DB, just navigate back to the list.
+        // FestivalGrid will automatically fetch the updated list.
         handleNavigate('list');
     }
 
-    const uniqueRegions = [...new Set(mockFestivals.map(f => f.region))].sort();
-
-    const filteredFestivals = festivals.filter(festival => {
-        return (
-            festival.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-            (selectedRegion === '' || festival.region === selectedRegion)
-        );
-    });
-
     const renderContent = () => {
-        if (isLoading) {
-            return (
-                <div className="flex justify-center items-center h-64">
-                    <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-cyan-500"></div>
-                </div>
-            );
-        }
-
         switch (currentPage) {
             case 'detail':
                 return selectedFestival ? <FestivalDetail festival={selectedFestival} onBack={handleGoBack} /> : null;
@@ -107,11 +100,16 @@ const App: React.FC = () => {
                         <FilterBar 
                             searchTerm={searchTerm}
                             selectedRegion={selectedRegion}
-                            regions={uniqueRegions}
+                            regions={regions} // Use regions from state
                             onSearchChange={setSearchTerm}
                             onRegionChange={setSelectedRegion}
                         />
-                        <FestivalGrid festivals={filteredFestivals} onSelectFestival={handleSelectFestival} />
+                        {/* Pass filter states to FestivalGrid */}
+                        <FestivalGrid 
+                            onSelectFestival={handleSelectFestival} 
+                            searchTerm={searchTerm}
+                            selectedRegion={selectedRegion}
+                        />
                     </>
                 );
         }
