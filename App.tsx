@@ -5,9 +5,8 @@ import { FestivalGrid } from './components/FestivalGrid';
 import { FestivalDetail } from './components/FestivalDetail';
 import { FilterBar } from './components/FilterBar';
 import { CreateEventPage } from './components/CreateEventPage';
-// import { festivals as mockFestivals } from './data/mockData'; // No longer needed
 import type { Festival } from './types';
-import { supabase } from './lib/supabaseClient'; // Import supabase
+import { supabase } from './lib/supabaseClient';
 
 type Page = 'list' | 'detail' | 'create';
 
@@ -24,6 +23,8 @@ const App: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRegion, setSelectedRegion] = useState('');
     const [regions, setRegions] = useState<string[]>([]);
+    // Add a key to force re-mounting of the grid
+    const [gridKey, setGridKey] = useState(Date.now());
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -50,7 +51,7 @@ const App: React.FC = () => {
             }
         };
         fetchRegions();
-    }, []);
+    }, [gridKey]); // Also refetch regions when grid is updated
 
     const handleToggleTheme = () => {
         setTheme(theme === 'light' ? 'dark' : 'light');
@@ -74,9 +75,11 @@ const App: React.FC = () => {
     }
     
     const handleEventCreated = () => {
-        // After a new event is created in the DB, just navigate back to the list.
-        // FestivalGrid will automatically fetch the updated list.
-        handleNavigate('list');
+        // Navigate back to the list page
+        setCurrentPage('list');
+        // and force the FestivalGrid to re-render and fetch new data by changing its key
+        setGridKey(Date.now());
+        window.scrollTo(0, 0);
     }
 
     const renderContent = () => {
@@ -100,12 +103,12 @@ const App: React.FC = () => {
                         <FilterBar 
                             searchTerm={searchTerm}
                             selectedRegion={selectedRegion}
-                            regions={regions} // Use regions from state
+                            regions={regions}
                             onSearchChange={setSearchTerm}
                             onRegionChange={setSelectedRegion}
                         />
-                        {/* Pass filter states to FestivalGrid */}
                         <FestivalGrid 
+                            key={gridKey} // Use the key here
                             onSelectFestival={handleSelectFestival} 
                             searchTerm={searchTerm}
                             selectedRegion={selectedRegion}

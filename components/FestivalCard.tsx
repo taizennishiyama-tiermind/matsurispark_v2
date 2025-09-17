@@ -6,6 +6,7 @@ interface FestivalCardProps {
     onSelect: (festival: Festival) => void;
 }
 
+// --- Icon Components (keep them as they are, no changes needed) ---
 const LocationIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -19,8 +20,13 @@ const CalendarIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+// --- Helper Components (Robust ProgressBar) ---
 const ProgressBar: React.FC<{ current: number, goal: number }> = ({ current, goal }) => {
-    const percentage = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
+    // Ensure current and goal are valid numbers, default to 0 if not.
+    const safeCurrent = typeof current === 'number' ? current : 0;
+    const safeGoal = typeof goal === 'number' && goal > 0 ? goal : 0;
+    const percentage = safeGoal > 0 ? Math.min((safeCurrent / safeGoal) * 100, 100) : 0;
+    
     return (
         <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 my-2">
             <div className="bg-gradient-to-r from-cyan-400 to-purple-500 h-2.5 rounded-full" style={{ width: `${percentage}%` }}></div>
@@ -30,9 +36,24 @@ const ProgressBar: React.FC<{ current: number, goal: number }> = ({ current, goa
 
 
 export const FestivalCard: React.FC<FestivalCardProps> = ({ festival, onSelect }) => {
-    const minSponsorship = Math.min(...festival.sponsorshipTiers.filter(t => t.type === 'monetary' && t.amount > 0).map(t => t.amount));
-    const isGoalBased = festival.fundingType === 'goal-based';
-    const progress = isGoalBased && festival.fundingGoal ? (festival.currentFunding || 0) / festival.fundingGoal * 100 : 0;
+    // --- Data Validation and Safe Defaults ---
+    // If festival data is incomplete, return null to avoid crashing.
+    if (!festival) {
+        return null;
+    }
+
+    // Safely get min sponsorship amount
+    const monetaryTiers = Array.isArray(festival.sponsorship_tiers) 
+        ? festival.sponsorship_tiers.filter(t => t.type === 'monetary' && typeof t.amount === 'number' && t.amount > 0)
+        : [];
+    const minSponsorship = monetaryTiers.length > 0 ? Math.min(...monetaryTiers.map(t => t.amount)) : Infinity;
+
+    const isGoalBased = festival.funding_type === 'goal-based';
+    
+    // Safely calculate progress
+    const currentFunding = typeof festival.current_funding === 'number' ? festival.current_funding : 0;
+    const fundingGoal = typeof festival.funding_goal === 'number' ? festival.funding_goal : 1; // Use 1 to avoid division by zero
+    const progress = isGoalBased ? (currentFunding / fundingGoal) * 100 : 0;
 
     return (
         <div 
@@ -40,28 +61,28 @@ export const FestivalCard: React.FC<FestivalCardProps> = ({ festival, onSelect }
             onClick={() => onSelect(festival)}
             role="button"
             tabIndex={0}
-            aria-label={`${festival.name}の詳細を見る`}
+            aria-label={`${festival.name || '祭り'}の詳細を見る`}
         >
             <div className="relative">
-                <img className="w-full h-56 object-cover" src={festival.imageUrl} alt={festival.name} />
+                <img className="w-full h-56 object-cover bg-slate-300" src={festival.image_url || ''} alt={festival.name || '祭り画像'} />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/40 transition-all duration-300"></div>
                  <div className="absolute bottom-0 left-0 p-4">
-                   <h3 className="text-2xl font-bold text-white">{festival.name}</h3>
+                   <h3 className="text-2xl font-bold text-white">{festival.name || '名称未設定'}</h3>
                 </div>
                 {isGoalBased && (
                     <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">目標達成型</div>
                 )}
             </div>
             <div className="p-6 flex flex-col flex-grow">
-                <p className="text-slate-600 dark:text-slate-400 mb-4 h-12 overflow-hidden">{festival.description}</p>
+                <p className="text-slate-600 dark:text-slate-400 mb-4 h-12 overflow-hidden">{festival.description || '説明がありません'}</p>
                 
                 <div className="flex items-center text-slate-600 dark:text-slate-400 mb-2">
                     <LocationIcon className="h-5 w-5 mr-2 text-cyan-500" />
-                    <span>{festival.location}</span>
+                    <span>{festival.location || '場所未定'}</span>
                 </div>
                 <div className="flex items-center text-slate-600 dark:text-slate-400 mb-4">
                     <CalendarIcon className="h-5 w-5 mr-2 text-cyan-500" />
-                    <span>{festival.date}</span>
+                    <span>{festival.date || '日程未定'}</span>
                 </div>
 
                 <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-auto">
@@ -69,10 +90,10 @@ export const FestivalCard: React.FC<FestivalCardProps> = ({ festival, onSelect }
                          <div>
                             <div className="flex justify-between text-sm font-medium text-slate-600 dark:text-slate-400">
                                 <span>現在 <span className="text-slate-800 dark:text-white font-bold">{Math.floor(progress)}%</span></span>
-                                <span>目標 ¥{(festival.fundingGoal || 0).toLocaleString()}</span>
+                                <span>目標 ¥{(fundingGoal > 1 ? fundingGoal : 0).toLocaleString()}</span>
                             </div>
-                            <ProgressBar current={festival.currentFunding || 0} goal={festival.fundingGoal || 1} />
-                            <p className="text-lg font-bold text-cyan-600 dark:text-cyan-400 text-right">¥{(festival.currentFunding || 0).toLocaleString()}</p>
+                            <ProgressBar current={currentFunding} goal={fundingGoal} />
+                            <p className="text-lg font-bold text-cyan-600 dark:text-cyan-400 text-right">¥{currentFunding.toLocaleString()}</p>
                         </div>
                     ) : (
                         <div className="flex justify-between items-center">
