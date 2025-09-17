@@ -17,7 +17,8 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
     useEffect(() => {
         const fetchFestivals = async () => {
             setLoading(true);
-            
+            setError(null); // Reset error state on new fetch
+
             let query = supabase.from('festivals').select('*');
 
             if (searchTerm) {
@@ -31,7 +32,8 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
 
             if (error) {
                 console.error('Error fetching festivals:', error);
-                setError(error.message);
+                // Set a user-friendly error message
+                setError('データの読み込みに失敗しました。時間をおいて再度お試しください。');
             } else {
                 setFestivals(data as Festival[]);
             }
@@ -50,15 +52,27 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
     }
 
     if (error) {
-        return <div className="text-red-500 text-center py-10">Error loading festivals: {error}</div>;
+        // Display the user-friendly error in a styled box
+        return (
+            <div className="text-center py-10 px-4 bg-yellow-50 text-yellow-700 rounded-lg shadow-md">
+                <p className="font-semibold">お知らせ</p>
+                <p>{error}</p>
+            </div>
+        );
     }
     
+    // This message is shown when there are no festivals that match the filter, or if there are none at all.
     if (festivals.length === 0) {
-        return <div className="text-center py-10 text-slate-500">条件に合う祭りが見つかりませんでした。</div>;
+        return (
+             <div className="text-center py-10 px-4 bg-slate-50 text-slate-600 rounded-lg shadow-md">
+                <p className="font-semibold">まだ投稿がありません</p>
+                <p>現在、表示できるお祭りの投稿がありません。新しいお祭りが登録されるのをお待ちください。</p>
+            </div>
+        );
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in">
             {festivals.map((festival) => (
                 <FestivalCard key={festival.id} festival={festival} onSelect={onSelectFestival} />
             ))}
