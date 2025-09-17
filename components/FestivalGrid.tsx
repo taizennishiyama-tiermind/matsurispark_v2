@@ -9,15 +9,21 @@ interface FestivalGridProps {
     selectedRegion: string;
 }
 
+// New type definition for the festival with the signed URL
+interface FestivalWithSignedUrl extends Festival {
+    signedImageUrl: string;
+}
+
 export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, searchTerm, selectedRegion }) => {
-    const [festivals, setFestivals] = useState<Festival[]>([]);
+    // The state now holds festivals with the signed URL
+    const [festivals, setFestivals] = useState<FestivalWithSignedUrl[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchFestivals = async () => {
             setLoading(true);
-            setError(null); // Reset error state on new fetch
+            setError(null);
 
             let query = supabase.from('festivals').select('*');
 
@@ -28,15 +34,52 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
                 query = query.eq('region', selectedRegion);
             }
 
-            const { data, error } = await query.order('created_at', { ascending: false });
+            const { data, error: fetchError } = await query.order('created_at', { ascending: false });
 
-            if (error) {
-                console.error('Error fetching festivals:', error);
-                // Set a user-friendly error message
+            if (fetchError) {
+                console.error('Error fetching festivals:', fetchError);
                 setError('データの読み込みに失敗しました。時間をおいて再度お試しください。');
-            } else {
-                setFestivals(data as Festival[]);
+                setLoading(false);
+                return;
             }
+
+            if (!data) {
+                setFestivals([]);
+                setLoading(false);
+                return;
+            }
+
+            // For each festival, create a signed URL for its image
+            const festivalsWithUrls = await Promise.all(
+                data.map(async (festival) => {
+                    // Default to a placeholder or an empty string if image_url is missing
+                    if (!festival.image_url) {
+                        return { ...festival, signedImageUrl: '' };
+                    }
+                    
+                    // Check if image_url is already a full HTTPS URL. If so, use it directly.
+                    // This maintains backward compatibility with old data.
+                    if (festival.image_url.startsWith('http')) {
+                        return { ...festival, signedImageUrl: festival.image_url };
+                    }
+
+                    // Otherwise, it's a file path, so create a signed URL.
+                    const { data: signData, error: signError } = await supabase
+                        .storage
+                        .from('festival-images')
+                        .createSignedUrl(festival.image_url, 3600); // URL is valid for 1 hour
+
+                    if (signError) {
+                        console.error('Error creating signed URL for', festival.image_url, signError);
+                        // If signing fails, use a placeholder or empty string
+                        return { ...festival, signedImageUrl: '' };
+                    }
+                    
+                    return { ...festival, signedImageUrl: signData.signedUrl };
+                })
+            );
+
+            setFestivals(festivalsWithUrls as FestivalWithSignedUrl[]);
             setLoading(false);
         };
 
@@ -52,7 +95,6 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
     }
 
     if (error) {
-        // Display the user-friendly error in a styled box
         return (
             <div className="text-center py-10 px-4 bg-yellow-50 text-yellow-700 rounded-lg shadow-md">
                 <p className="font-semibold">お知らせ</p>
@@ -61,7 +103,6 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
         );
     }
     
-    // This message is shown when there are no festivals that match the filter, or if there are none at all.
     if (festivals.length === 0) {
         return (
              <div className="text-center py-10 px-4 bg-slate-50 text-slate-600 rounded-lg shadow-md">
@@ -74,7 +115,12 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in">
             {festivals.map((festival) => (
-                <FestivalCard key={festival.id} festival={festival} onSelect={onSelectFestival} />
+                // Pass the signed URL to the FestivalCard
+                <FestivalCard 
+                    key={festival.id} 
+                    festival={{...festival, image_url: festival.signedImageUrl}} 
+                    onSelect={onSelectFestival} 
+                />
             ))}
         </div>
     );
