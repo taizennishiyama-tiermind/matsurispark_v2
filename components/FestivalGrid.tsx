@@ -9,13 +9,11 @@ interface FestivalGridProps {
     selectedRegion: string;
 }
 
-// New type definition for the festival with the signed URL
 interface FestivalWithSignedUrl extends Festival {
     signedImageUrl: string;
 }
 
 export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, searchTerm, selectedRegion }) => {
-    // The state now holds festivals with the signed URL
     const [festivals, setFestivals] = useState<FestivalWithSignedUrl[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -49,33 +47,50 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
                 return;
             }
 
-            // For each festival, create a signed URL for its image
+            // **FIX:** This logic now correctly handles both old (full URL) and new (path only) data formats.
             const festivalsWithUrls = await Promise.all(
                 data.map(async (festival) => {
-                    // Default to a placeholder or an empty string if image_url is missing
-                    if (!festival.image_url) {
+                    let imagePath = festival.image_url;
+
+                    if (!imagePath) {
                         return { ...festival, signedImageUrl: '' };
                     }
-                    
-                    // Check if image_url is already a full HTTPS URL. If so, use it directly.
-                    // This maintains backward compatibility with old data.
-                    if (festival.image_url.startsWith('http')) {
-                        return { ...festival, signedImageUrl: festival.image_url };
+
+                    // If it's a full URL (the old, incorrect format), extract the path from it.
+                    if (imagePath.startsWith('https')) {
+                        try {
+                            // Example URL: https://<project-ref>.supabase.co/storage/v1/object/public/festival-images/festival_16...jpg
+                            const urlParts = imagePath.split('/');
+                            // The actual path within the bucket is the last part of the URL.
+                            const fileName = urlParts[urlParts.length - 1];
+                            if (fileName) {
+                                imagePath = fileName;
+                            } else {
+                                throw new Error('Could not extract file name from URL');
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse old image URL:', festival.image_url, e);
+                            imagePath = null; // Mark as invalid
+                        }
                     }
 
-                    // Otherwise, it's a file path, so create a signed URL.
-                    const { data: signData, error: signError } = await supabase
-                        .storage
-                        .from('festival-images')
-                        .createSignedUrl(festival.image_url, 3600); // URL is valid for 1 hour
+                    // If we have a valid path (either new format or extracted from old), create a signed URL.
+                    if (imagePath) {
+                        const { data: signData, error: signError } = await supabase
+                            .storage
+                            .from('festival-images')
+                            .createSignedUrl(imagePath, 3600); // URL valid for 1 hour
 
-                    if (signError) {
-                        console.error('Error creating signed URL for', festival.image_url, signError);
-                        // If signing fails, use a placeholder or empty string
-                        return { ...festival, signedImageUrl: '' };
-                    }
+                        if (signError) {
+                            console.error('Error creating signed URL for path:', imagePath, signError);
+                            return { ...festival, signedImageUrl: '' }; // Fail gracefully
+                        }
+                        
+                        return { ...festival, signedImageUrl: signData.signedUrl };
+                    } 
                     
-                    return { ...festival, signedImageUrl: signData.signedUrl };
+                    // Fallback for any items that couldn't be processed
+                    return { ...festival, signedImageUrl: '' };
                 })
             );
 
@@ -115,7 +130,6 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in">
             {festivals.map((festival) => (
-                // Pass the signed URL to the FestivalCard
                 <FestivalCard 
                     key={festival.id} 
                     festival={{...festival, image_url: festival.signedImageUrl}} 
