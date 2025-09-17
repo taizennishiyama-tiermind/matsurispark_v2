@@ -8,39 +8,33 @@ interface FestivalDetailProps {
     onBack: () => void;
 }
 
-// ... (rest of the icon and sub-components remain the same)
+// --- Icon and sub-components (unchanged) ---
 const BackIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
     </svg>
 );
-
 const UsersIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
 );
-
 const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
 );
-
 const GiftIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
     </svg>
 );
-
 const TruckIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17H6V6h10v4l4 4H13zM6 6L3 9h3v8h12v-3l-4-4z" />
     </svg>
 );
-
-
 const ProgressBar: React.FC<{ current: number, goal: number }> = ({ current, goal }) => {
     const percentage = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
     return (
@@ -51,7 +45,6 @@ const ProgressBar: React.FC<{ current: number, goal: number }> = ({ current, goa
         </div>
     );
 };
-
 const SponsorList: React.FC<{ sponsors: Sponsor[] }> = ({ sponsors }) => (
     <div>
         <h2 className="text-3xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-purple-600 dark:from-cyan-400 dark:to-purple-500 mb-8">ご支援いただいた皆様</h2>
@@ -60,110 +53,118 @@ const SponsorList: React.FC<{ sponsors: Sponsor[] }> = ({ sponsors }) => (
                 <div key={sponsor.id} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg flex flex-col items-center justify-center border border-slate-200 dark:border-slate-700 transition-transform transform hover:scale-105">
                     <img src={sponsor.logo_url} alt={`${sponsor.company_name} logo`} className="h-20 w-20 rounded-full object-cover mb-3 shadow-md" />
                     <p className="font-bold text-sm text-slate-800 dark:text-white">{sponsor.company_name}</p>
-                    {/* You might need to join with sponsorship_tiers to get the tier name */}
-                    {/* <p className="text-xs text-slate-500 dark:text-slate-400">{sponsor.tierName}</p> */}
                 </div>
             ))}
         </div>
     </div>
 );
-
-
 const SponsorshipTierCard: React.FC<{ tier: SponsorshipTier; onSelect: (tier: SponsorshipTier) => void; }> = ({ tier, onSelect }) => {
     const renderHeader = () => {
         switch(tier.type) {
-            case 'in-kind':
-                return (
-                    <div className="text-center">
-                        <GiftIcon className="h-12 w-12 mx-auto text-purple-500 mb-2" />
-                        <h3 className="text-2xl font-bold text-purple-600 dark:text-purple-400">{tier.name}</h3>
-                        <p className="font-semibold text-slate-700 dark:text-slate-200 mt-2">{tier.description}</p>
-                        {tier.value && <p className="text-sm text-slate-500">(想定価値: ¥{tier.value.toLocaleString()})</p>}
-                    </div>
-                );
-            case 'service':
-                return (
-                    <div className="text-center">
-                         <TruckIcon className="h-12 w-12 mx-auto text-orange-500 mb-2" />
-                        <h3 className="text-2xl font-bold text-orange-600 dark:text-orange-400">{tier.name}</h3>
-                        <p className="font-semibold text-slate-700 dark:text-slate-200 mt-2">{tier.description}</p>
-                        {tier.value && <p className="text-sm text-slate-500">(想定価値: ¥{tier.value.toLocaleString()})</p>}
-                    </div>
-                );
-            case 'monetary':
-            default:
-                return (
-                    <div>
-                        <h3 className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{tier.name}</h3>
-                        <p className="text-4xl font-extrabold my-4 text-slate-800 dark:text-white">¥{tier.amount.toLocaleString()}</p>
-                    </div>
-                );
+            case 'in-kind': return <div className="text-center"><GiftIcon className="h-12 w-12 mx-auto text-purple-500 mb-2" /><h3 className="text-2xl font-bold text-purple-600 dark:text-purple-400">{tier.name}</h3><p className="font-semibold text-slate-700 dark:text-slate-200 mt-2">{tier.description}</p>{tier.value && <p className="text-sm text-slate-500">(想定価値: ¥{tier.value.toLocaleString()})</p>}</div>;
+            case 'service': return <div className="text-center"><TruckIcon className="h-12 w-12 mx-auto text-orange-500 mb-2" /><h3 className="text-2xl font-bold text-orange-600 dark:text-orange-400">{tier.name}</h3><p className="font-semibold text-slate-700 dark:text-slate-200 mt-2">{tier.description}</p>{tier.value && <p className="text-sm text-slate-500">(想定価値: ¥{tier.value.toLocaleString()})</p>}</div>;
+            default: return <div><h3 className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{tier.name}</h3><p className="text-4xl font-extrabold my-4 text-slate-800 dark:text-white">¥{tier.amount.toLocaleString()}</p></div>;
         }
     };
-
     return (
         <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col hover:border-cyan-500 transition-colors">
             {renderHeader()}
             <ul className="space-y-3 text-slate-600 dark:text-slate-300 flex-grow my-6">
-                {(tier.perks as any[]).map((perk: any, index: number) => (
-                    <li key={index} className="flex items-start">
-                        <CheckCircleIcon className="h-6 w-6 text-green-500 dark:text-green-400 mr-2 flex-shrink-0" />
-                        <span>{perk}</span>
-                    </li>
-                ))}
+                {(tier.perks as any[]).map((perk: any, index: number) => <li key={index} className="flex items-start"><CheckCircleIcon className="h-6 w-6 text-green-500 dark:text-green-400 mr-2 flex-shrink-0" /><span>{perk}</span></li>)}
             </ul>
-            <button
-                onClick={() => onSelect(tier)}
-                className="mt-auto w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105"
-            >
+            <button onClick={() => onSelect(tier)} className="mt-auto w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105">
                 {tier.type === 'monetary' ? 'このプランで協賛' : '協力する'}
             </button>
         </div>
     );
 };
 
-
 export const FestivalDetail: React.FC<FestivalDetailProps> = ({ festival, onBack }) => {
     const [sponsorshipTiers, setSponsorshipTiers] = useState<SponsorshipTier[]>([]);
     const [sponsors, setSponsors] = useState<Sponsor[]>([]);
     const [selectedTier, setSelectedTier] = useState<SponsorshipTier | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [dataKey, setDataKey] = useState(0); // Add a key to force re-fetch
+    const [dataKey, setDataKey] = useState(0);
+    
+    // **FINAL FIX: State for the resolved, valid image URL**
+    const [signedImageUrl, setSignedImageUrl] = useState<string>('');
+    const [isImageLoading, setIsImageLoading] = useState(true);
 
-    const isGoalBased = festival.fundingType === 'goal-based';
+    const isGoalBased = festival.funding_type === 'goal-based';
 
-    const fetchFestivalData = async () => {
-        try {
-            setError(null);
-            const [tiersRes, sponsorsRes] = await Promise.all([
-                supabase.from('sponsorship_tiers').select('*').eq('festival_id', festival.id),
-                // Join sponsors with sponsorship_tiers to get tier name
-                supabase.from('sponsors')
-                        .select(`
-                            id,
-                            company_name,
-                            logo_url,
-                            sponsorship_tier_id,
-                            sponsorship_tiers ( name )
-                        `)
-                        .eq('festival_id', festival.id)
-            ]);
-
-            if (tiersRes.error) throw tiersRes.error;
-            if (sponsorsRes.error) throw sponsorsRes.error;
-
-            setSponsorshipTiers(tiersRes.data as SponsorshipTier[]);
-            setSponsors(sponsorsRes.data as any[]); // Data will have nested tier info
-
-        } catch (err: any) {
-            console.error('Error fetching festival data:', err);
-            setError(err.message);
-        }
-    };
-
+    // **FINAL FIX: This useEffect hook resolves the image URL on component load**
     useEffect(() => {
+        const resolveImageUrl = async () => {
+            setIsImageLoading(true);
+            const rawPath = festival.image_url;
+
+            if (!rawPath) {
+                setSignedImageUrl('');
+                setIsImageLoading(false);
+                return;
+            }
+
+            let normalizedPath = '';
+
+            // The same universal translator logic from FestivalGrid
+            if (rawPath.startsWith('https')) {
+                try {
+                    const url = new URL(rawPath);
+                    const pathSegments = url.pathname.split('/');
+                    normalizedPath = pathSegments.slice(-2).join('/');
+                } catch (e) {
+                    console.error('Could not parse legacy URL in Detail page:', rawPath, e);
+                }
+            } else if (rawPath.includes('/')) {
+                normalizedPath = rawPath;
+            } else {
+                normalizedPath = `festival-images/${rawPath}`;
+            }
+
+            if (normalizedPath) {
+                const { data, error } = await supabase.storage
+                    .from('festival-images')
+                    .createSignedUrl(normalizedPath, 3600); // 1-hour expiry
+
+                if (error) {
+                    console.error('Error creating signed URL in Detail page:', normalizedPath, error);
+                    setSignedImageUrl('');
+                } else {
+                    setSignedImageUrl(data.signedUrl);
+                }
+            } else {
+                setSignedImageUrl('');
+            }
+            setIsImageLoading(false);
+        };
+
+        resolveImageUrl();
+    }, [festival.id, festival.image_url]); // Re-run if the festival changes
+
+    // This useEffect fetches tier and sponsor data
+    useEffect(() => {
+        const fetchFestivalData = async () => {
+            try {
+                setError(null);
+                const [tiersRes, sponsorsRes] = await Promise.all([
+                    supabase.from('sponsorship_tiers').select('*').eq('festival_id', festival.id),
+                    supabase.from('sponsors').select(`id, company_name, logo_url`).eq('festival_id', festival.id)
+                ]);
+
+                if (tiersRes.error) throw tiersRes.error;
+                if (sponsorsRes.error) throw sponsorsRes.error;
+
+                setSponsorshipTiers(tiersRes.data as SponsorshipTier[]);
+                setSponsors(sponsorsRes.data as Sponsor[]);
+
+            } catch (err: any) {
+                console.error('Error fetching festival data:', err);
+                setError(err.message);
+            }
+        };
+
         fetchFestivalData();
-    }, [festival.id, dataKey]); // Re-fetch when festival id or dataKey changes
+    }, [festival.id, dataKey]);
 
     const handleSelectTier = (tier: SponsorshipTier) => {
         setSelectedTier(tier);
@@ -174,21 +175,24 @@ export const FestivalDetail: React.FC<FestivalDetailProps> = ({ festival, onBack
 
     const handleFormSubmit = () => {
         setSelectedTier(null); 
-        setDataKey(prev => prev + 1); // Increment key to trigger re-fetch
+        setDataKey(prev => prev + 1);
     };
     
     return (
         <div className="animate-fade-in">
-            <button
-                onClick={onBack}
-                className="flex items-center space-x-2 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 mb-6 transition-colors font-semibold"
-            >
+            <button onClick={onBack} className="flex items-center space-x-2 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 mb-6 transition-colors font-semibold">
                 <BackIcon className="h-5 w-5" />
                 <span>祭り一覧へ戻る</span>
             </button>
             
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl overflow-hidden">
-                <img src={festival.image_url} alt={festival.name} className="w-full h-64 md:h-96 object-cover" />
+                {/* **FINAL FIX: Use the resolved URL and show a loading state** */}
+                {isImageLoading ? (
+                    <div className="w-full h-64 md:h-96 bg-slate-200 dark:bg-slate-700 animate-pulse"></div>
+                ) : (
+                    <img src={signedImageUrl} alt={festival.name} className="w-full h-64 md:h-96 object-cover bg-slate-200 dark:bg-slate-700" />
+                )}
+                
                 <div className="p-6 md:p-10">
                     {isGoalBased && (
                          <div className="mb-8 p-6 bg-slate-100 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -241,7 +245,7 @@ export const FestivalDetail: React.FC<FestivalDetailProps> = ({ festival, onBack
                         <div id="sponsorship-form" className="mt-12">
                            <SponsorshipForm 
                                 tier={selectedTier} 
-                                festivalId={festival.id} // Pass the festival ID
+                                festivalId={festival.id}
                                 festivalName={festival.name} 
                                 onSubmitSuccess={handleFormSubmit} 
                             />
