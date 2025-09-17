@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import type { Festival, SponsorshipTier } from '../types';
-import { supabase } from '../lib/supabaseClient'; // Import supabase
+import { supabase } from '../lib/supabaseClient';
 
 interface CreateEventPageProps {
-    onEventCreated: () => void; // No longer needs to pass the event object
+    onEventCreated: () => void;
     onBack: () => void;
 }
 
@@ -30,12 +30,10 @@ const UploadIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 // --- End Icon Components ---
 
-// Use a partial, DB-aligned tier type for the form state
 type NewSponsorshipTier = Omit<SponsorshipTier, 'id' | 'festival_id' | 'created_at' | 'updated_at'>;
 const initialTier: NewSponsorshipTier = { name: '', type: 'monetary', amount: 0, perks: [], description: '', value: 0 };
 
 export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated, onBack }) => {
-    // State aligned with DB schema (snake_case)
     const [name, setName] = useState('');
     const [location, setLocation] = useState('');
     const [date, setDate] = useState('');
@@ -48,7 +46,6 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
     const [sponsorship_tiers, setSponsorshipTiers] = useState<NewSponsorshipTier[]>([initialTier]);
     const [funding_type, setFundingType] = useState<Festival['funding_type']>('open');
     const [funding_goal, setFundingGoal] = useState(0);
-
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -84,20 +81,23 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
         setError(null);
 
         try {
-            // 1. Upload festival image
+            // **ULTIMATE FIX 1: Standardize upload path**
             const fileExt = imageFile.name.split('.').pop();
-            const imagePath = `festival_${Date.now()}.${fileExt}`;
+            const fileName = `festival_${Date.now()}.${fileExt}`;
+            // Correct path format: `folder/filename` as seen in Supabase UI
+            const imagePath = `festival-images/${fileName}`;
 
+            // Upload to the correct folder
             const { error: uploadError } = await supabase.storage
-                .from('festival-images')
-                .upload(imagePath, imageFile);
+                .from('festival-images') // Bucket name
+                .upload(imagePath, imageFile); // FULL path within the bucket
+            
             if (uploadError) throw new Error(`画像アップロードエラー: ${uploadError.message}`);
 
-            // 2. Insert festival data
-            // **FIX:** Save only the `imagePath` to the database, not a full URL.
+            // **ULTIMATE FIX 2: Save the standardized path to DB**
             const festivalData: Omit<Festival, 'id'> = {
                 name, location, date, region, attendance, description, long_description,
-                image_url: imagePath, // <-- CORRECTED: Store the path only
+                image_url: imagePath, // <-- Save the `folder/filename` path
                 funding_type,
                 funding_goal: funding_type === 'goal-based' ? funding_goal : 0,
                 current_funding: 0,
@@ -107,12 +107,11 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
                 .from('festivals')
                 .insert(festivalData)
                 .select()
-                .single(); // Get the newly created festival back
+                .single();
 
             if (festivalInsertError) throw new Error(`イベント登録エラー: ${festivalInsertError.message}`);
             if (!newFestival) throw new Error('作成されたイベントのデータが取得できませんでした。');
 
-            // 3. Prepare and insert sponsorship tiers
             const tiersToInsert = sponsorship_tiers.map(tier => ({
                 ...tier,
                 festival_id: newFestival.id,
@@ -125,7 +124,6 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
             
             if (tiersInsertError) throw new Error(`協賛プラン登録エラー: ${tiersInsertError.message}`);
             
-            // 4. Success
             alert('イベントが正常に登録されました！');
             onEventCreated();
 
@@ -158,7 +156,6 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* Basic Info */}
                     <div className="border-b border-slate-200 dark:border-slate-700 pb-8">
                         <h2 className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mb-6">基本情報</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

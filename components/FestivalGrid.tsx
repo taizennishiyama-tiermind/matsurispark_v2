@@ -24,13 +24,8 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
             setError(null);
 
             let query = supabase.from('festivals').select('*');
-
-            if (searchTerm) {
-                query = query.ilike('name', `%${searchTerm}%`);
-            }
-            if (selectedRegion) {
-                query = query.eq('region', selectedRegion);
-            }
+            if (searchTerm) query = query.ilike('name', `%${searchTerm}%`);
+            if (selectedRegion) query = query.eq('region', selectedRegion);
 
             const { data, error: fetchError } = await query.order('created_at', { ascending: false });
 
@@ -40,56 +35,62 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
                 setLoading(false);
                 return;
             }
-
             if (!data) {
                 setFestivals([]);
                 setLoading(false);
                 return;
             }
 
-            // **FIX:** This logic now correctly handles both old (full URL) and new (path only) data formats.
+            // **THE ULTIMATE FIX: A universal translator for all historical path formats**
             const festivalsWithUrls = await Promise.all(
                 data.map(async (festival) => {
-                    let imagePath = festival.image_url;
+                    let rawPath = festival.image_url;
+                    if (!rawPath) return { ...festival, signedImageUrl: '' };
 
-                    if (!imagePath) {
-                        return { ...festival, signedImageUrl: '' };
-                    }
+                    let normalizedPath = '';
 
-                    // If it's a full URL (the old, incorrect format), extract the path from it.
-                    if (imagePath.startsWith('https')) {
-                        try {
-                            // Example URL: https://<project-ref>.supabase.co/storage/v1/object/public/festival-images/festival_16...jpg
-                            const urlParts = imagePath.split('/');
-                            // The actual path within the bucket is the last part of the URL.
-                            const fileName = urlParts[urlParts.length - 1];
-                            if (fileName) {
-                                imagePath = fileName;
-                            } else {
-                                throw new Error('Could not extract file name from URL');
-                            }
+                    // Case 1: It's a full URL (oldest, broken format)
+                    // e.g., https://<...>.supabase.co/storage/v1/object/public/festival-images/festival_175....png
+                    if (rawPath.startsWith('https')) {
+                         try {
+                            const url = new URL(rawPath);
+                            // Pathname is /storage/v1/object/public/festival-images/festival_175....png
+                            const pathSegments = url.pathname.split('/');
+                            // We need the last TWO segments: `festival-images` and `festival_175....png`
+                            normalizedPath = pathSegments.slice(-2).join('/');
                         } catch (e) {
-                            console.error('Failed to parse old image URL:', festival.image_url, e);
-                            imagePath = null; // Mark as invalid
+                            console.error('Could not parse legacy URL:', rawPath, e);
+                            return { ...festival, signedImageUrl: '' };
                         }
                     }
+                    // Case 2: It contains a path separator (the correct, new format)
+                    // e.g., `festival-images/festival_175....png`
+                    else if (rawPath.includes('/')) {
+                        normalizedPath = rawPath;
+                    }
+                    // Case 3: It does NOT contain a separator (intermediate, broken format)
+                    // e.g., `festival_175....png`
+                    else {
+                        // Reconstruct the correct path based on the known folder structure
+                        normalizedPath = `festival-images/${rawPath}`;
+                    }
 
-                    // If we have a valid path (either new format or extracted from old), create a signed URL.
-                    if (imagePath) {
+                    // Now, with a correctly normalized path, create the signed URL
+                    if (normalizedPath) {
+                        // We must use the BUCKET name here, and the FULL PATH to the file inside the bucket.
                         const { data: signData, error: signError } = await supabase
                             .storage
-                            .from('festival-images')
-                            .createSignedUrl(imagePath, 3600); // URL valid for 1 hour
+                            .from('festival-images') // Bucket name
+                            .createSignedUrl(normalizedPath, 3600); // Path inside the bucket
 
                         if (signError) {
-                            console.error('Error creating signed URL for path:', imagePath, signError);
-                            return { ...festival, signedImageUrl: '' }; // Fail gracefully
+                            console.error('Error creating signed URL for normalized path:', normalizedPath, signError);
+                            return { ...festival, signedImageUrl: '' };
                         }
-                        
                         return { ...festival, signedImageUrl: signData.signedUrl };
-                    } 
-                    
-                    // Fallback for any items that couldn't be processed
+                    }
+
+                    // Fallback if no valid path could be determined
                     return { ...festival, signedImageUrl: '' };
                 })
             );
@@ -101,6 +102,7 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
         fetchFestivals();
     }, [searchTerm, selectedRegion]);
 
+    // --- Rendering logic (unchanged) ---
     if (loading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -108,7 +110,6 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
             </div>
         );
     }
-
     if (error) {
         return (
             <div className="text-center py-10 px-4 bg-yellow-50 text-yellow-700 rounded-lg shadow-md">
@@ -117,7 +118,6 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
             </div>
         );
     }
-    
     if (festivals.length === 0) {
         return (
              <div className="text-center py-10 px-4 bg-slate-50 text-slate-600 rounded-lg shadow-md">
@@ -126,13 +126,12 @@ export const FestivalGrid: React.FC<FestivalGridProps> = ({ onSelectFestival, se
             </div>
         );
     }
-
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in">
             {festivals.map((festival) => (
                 <FestivalCard 
                     key={festival.id} 
-                    festival={{...festival, image_url: festival.signedImageUrl}} 
+                    festival={{...festival, image_url: festival.signedImageUrl}}
                     onSelect={onSelectFestival} 
                 />
             ))}
