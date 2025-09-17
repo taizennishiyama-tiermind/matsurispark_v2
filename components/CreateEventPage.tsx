@@ -87,20 +87,26 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
             // 1. Upload festival image
             const fileExt = imageFile.name.split('.').pop();
             const newFileName = `festival_${Date.now()}.${fileExt}`;
-            const filePath = `festival-images/${newFileName}`;
+            // IMPORTANT: Store the path without the bucket name in a variable
+            const filePath = `${newFileName}`;
 
             const { error: uploadError } = await supabase.storage
                 .from('festival-images') // Ensure this bucket exists
+                 // Pass only the file path to the upload method
                 .upload(filePath, imageFile);
             if (uploadError) throw new Error(`画像アップロードエラー: ${uploadError.message}`);
 
-            const { data: urlData } = supabase.storage.from('festival-images').getPublicUrl(filePath);
+            // 2. Get public URL for the just-uploaded file. This URL is used to display the image.
+            const { data: urlData } = supabase.storage
+                .from('festival-images')
+                .getPublicUrl(filePath);
+            
             if (!urlData) throw new Error('画像URLの取得に失敗しました。');
             const image_url = urlData.publicUrl;
 
-            // 2. Insert festival data
+            // 3. Insert festival data
             const festivalData: Omit<Festival, 'id'> = {
-                name, location, date, region, attendance, description, long_description, image_url,
+                name, location, date, region, attendance, description, long_description, image_url, // Save the public URL
                 funding_type,
                 funding_goal: funding_type === 'goal-based' ? funding_goal : 0,
                 current_funding: 0,
@@ -115,7 +121,7 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
             if (festivalInsertError) throw new Error(`イベント登録エラー: ${festivalInsertError.message}`);
             if (!newFestival) throw new Error('作成されたイベントのデータが取得できませんでした。');
 
-            // 3. Prepare and insert sponsorship tiers
+            // 4. Prepare and insert sponsorship tiers
             const tiersToInsert = sponsorship_tiers.map(tier => ({
                 ...tier,
                 festival_id: newFestival.id,
@@ -128,7 +134,7 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
             
             if (tiersInsertError) throw new Error(`協賛プラン登録エラー: ${tiersInsertError.message}`);
             
-            // 4. Success
+            // 5. Success
             alert('イベントが正常に登録されました！');
             onEventCreated();
 
@@ -139,6 +145,7 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ onEventCreated
             setIsSubmitting(false);
         }
     };
+
 
     return (
         <div className="animate-fade-in">
